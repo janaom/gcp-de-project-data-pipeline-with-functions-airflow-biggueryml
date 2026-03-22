@@ -1,17 +1,59 @@
+import argparse
 import csv
+import os
+import sys
 
-input_file = r'C:\path-to-your-file\Daily_Port_Activity_Data_and_Trade_Estimates.csv'  #Path to the input CSV file
-output_file = r'C:\path-to-your-file\output.csv' #Path to the output CSV file
 
-#Open input and output files
-with open(input_file, 'r') as file_in, open(output_file, 'w', newline='') as file_out:
-    reader = csv.DictReader(file_in)
-    writer = csv.DictWriter(file_out, fieldnames=reader.fieldnames)
-    writer.writeheader()
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Filter the PortWatch CSV by year and write a new CSV with the same header. "
+            "This is intended to help split the large source file into smaller chunks."
+        )
+    )
+    parser.add_argument(
+        "--input",
+        required=True,
+        help="Path to the input CSV file (e.g. Daily_Port_Activity_Data_and_Trade_Estimates.csv)",
+    )
+    parser.add_argument(
+        "--output",
+        required=True,
+        help="Path to write the filtered CSV (will be overwritten).",
+    )
+    parser.add_argument(
+        "--year",
+        required=True,
+        help="Year value to filter on, e.g. 2024",
+    )
+    args = parser.parse_args(argv)
 
-    #Iterate over rows and write the filtered rows to the output file
-    for row in reader:
-        if row['year'] == '2024': #e.g. 2024
-            writer.writerow(row)
+    if not os.path.exists(args.input):
+        print(f"ERROR: input file not found: {args.input}", file=sys.stderr)
+        return 2
 
-print('Filtered rows saved to', output_file)
+    with open(args.input, "r", newline="", encoding="utf-8") as file_in, open(
+        args.output, "w", newline="", encoding="utf-8"
+    ) as file_out:
+        reader = csv.DictReader(file_in)
+        if not reader.fieldnames:
+            print("ERROR: input CSV appears to have no header", file=sys.stderr)
+            return 2
+
+        writer = csv.DictWriter(file_out, fieldnames=reader.fieldnames)
+        writer.writeheader()
+
+        in_rows = 0
+        out_rows = 0
+        for row in reader:
+            in_rows += 1
+            if row.get("year") == str(args.year):
+                writer.writerow(row)
+                out_rows += 1
+
+    print(f"Filtered {out_rows} of {in_rows} rows into {args.output}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))
